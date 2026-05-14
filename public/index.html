@@ -1,0 +1,1052 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>班级排座位系统</title>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: #f0f2f5;
+  min-height: 100vh;
+  color: #333;
+}
+
+/* 登录页面 */
+.login-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+.login-box {
+  background: #fff;
+  border-radius: 16px;
+  padding: 40px;
+  width: 400px;
+  max-width: 90vw;
+  box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+}
+.login-box h2 { text-align: center; margin-bottom: 30px; color: #333; font-size: 24px; }
+.login-box .logo { text-align: center; font-size: 48px; margin-bottom: 10px; }
+.login-box .subtitle { text-align: center; color: #888; font-size: 14px; margin-bottom: 30px; }
+.login-box input {
+  width: 100%; padding: 12px 16px; border: 1px solid #d9d9d9; border-radius: 8px;
+  font-size: 14px; margin-bottom: 16px; transition: border-color 0.2s;
+}
+.login-box input:focus { outline: none; border-color: #667eea; }
+.login-box button {
+  width: 100%; padding: 12px; border: none; border-radius: 8px;
+  font-size: 16px; font-weight: 500; cursor: pointer; transition: all 0.2s;
+}
+.login-box .btn-login {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: #fff; margin-bottom: 12px;
+}
+.login-box .btn-login:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(102,126,234,0.4); }
+.login-box .btn-register { background: #fff; color: #667eea; border: 1px solid #667eea; }
+.login-box .btn-register:hover { background: #f5f7ff; }
+.login-box .switch-mode { text-align: center; margin-top: 20px; color: #888; font-size: 13px; }
+.login-box .switch-mode a { color: #667eea; cursor: pointer; }
+
+/* 主页面 */
+.main-app { display: none; min-height: 100vh; }
+.main-app.logged-in { display: block; }
+
+.top-bar {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white; padding: 18px 30px;
+  display: flex; justify-content: space-between; align-items: center;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.15); flex-wrap: wrap; gap: 12px;
+}
+.top-bar h1 { font-size: 22px; font-weight: 700; }
+.top-bar .subtitle { font-size: 13px; opacity: 0.85; margin-top: 2px; }
+.user-info { display: flex; align-items: center; gap: 12px; }
+.user-name { font-size: 14px; opacity: 0.9; }
+.btn-logout {
+  padding: 6px 16px; border: 1px solid rgba(255,255,255,0.5);
+  background: transparent; color: #fff; border-radius: 6px;
+  cursor: pointer; font-size: 13px; transition: all 0.2s;
+}
+.btn-logout:hover { background: rgba(255,255,255,0.1); }
+
+.toolbar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.toolbar button {
+  padding: 8px 16px; border: none; border-radius: 6px;
+  cursor: pointer; font-size: 13px; font-weight: 500;
+  transition: all 0.2s; white-space: nowrap;
+}
+.toolbar button:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 2px 8px rgba(0,0,0,0.2); }
+.toolbar button:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn-primary { background: #fff; color: #667eea; }
+.btn-success { background: #52c41a; color: #fff; }
+.btn-danger { background: #ff4d4f; color: #fff; }
+.btn-warning { background: #faad14; color: #fff; }
+.btn-info { background: #1890ff; color: #fff; }
+.btn-secondary { background: #8c8c8c; color: #fff; }
+
+.container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+
+.config-bar {
+  background: #fff; border-radius: 10px; padding: 16px 20px; margin-bottom: 16px;
+  display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+}
+.config-bar label { font-size: 13px; color: #555; font-weight: 500; }
+.config-bar input[type="number"] {
+  width: 60px; padding: 5px 8px; border: 1px solid #d9d9d9;
+  border-radius: 4px; font-size: 14px; text-align: center;
+}
+.config-bar .config-group { display: flex; align-items: center; gap: 6px; }
+.config-bar select { padding: 5px 8px; border: 1px solid #d9d9d9; border-radius: 4px; font-size: 13px; }
+
+/* 未保存提示 */
+.unsaved-badge {
+  background: #ff4d4f; color: #fff; padding: 4px 10px;
+  border-radius: 12px; font-size: 12px; margin-left: 10px;
+  animation: pulse 2s infinite;
+}
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
+.classroom-wrapper {
+  background: #fff; border-radius: 12px; padding: 24px 20px 20px;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.08); min-height: 400px;
+}
+.podium {
+  text-align: center; margin: 0 auto 20px; width: 160px; padding: 10px;
+  background: linear-gradient(135deg, #f5f7fa, #e8ecf1);
+  border: 2px solid #d0d5dd; border-radius: 6px;
+  font-size: 15px; font-weight: 600; color: #666; letter-spacing: 4px;
+  position: relative; flex-shrink: 0;
+}
+.podium::after {
+  content: ''; position: absolute; top: 100%; left: 50%;
+  transform: translateX(-50%); border: 8px solid transparent;
+  border-top-color: #d0d5dd;
+}
+.podium.left, .podium.right { display: inline-flex; align-items: center; margin: 0 20px; }
+.podium.left::after, .podium.right::after { display: none; }
+
+.seating-grid {
+  display: grid; gap: 10px; margin: 20px auto 0;
+  justify-content: center; padding: 10px; max-width: 100%;
+}
+.seat {
+  min-width: 80px; min-height: 56px; background: #f8f9ff;
+  border: 2px solid #d0d5f0; border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  padding: 6px 8px; font-size: 13px; font-weight: 500; text-align: center;
+  cursor: pointer; transition: all 0.2s; position: relative; word-break: break-all;
+}
+.seat:hover { border-color: #667eea; box-shadow: 0 2px 8px rgba(102,126,234,0.2); }
+.seat.occupied { background: #e6f7ff; border-color: #1890ff; }
+.seat.empty { background: #fafafa; border-color: #eee; color: #bbb; font-size: 12px; }
+.seat .remove-btn {
+  position: absolute; top: -8px; right: -8px; width: 18px; height: 18px;
+  background: #ff4d4f; color: #fff; border: none; border-radius: 50%;
+  font-size: 11px; cursor: pointer; display: none;
+  align-items: center; justify-content: center; line-height: 1;
+}
+.seat:hover .remove-btn { display: flex; }
+.seat.dragging { opacity: 0.5; }
+.seat.drag-over { border-color: #52c41a; background: #f6ffed; }
+
+.panel-row { display: flex; gap: 16px; margin-top: 16px; }
+.student-panel {
+  flex: 1; background: #fff; border-radius: 10px; padding: 16px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+}
+.student-panel h3 {
+  font-size: 15px; margin-bottom: 10px;
+  display: flex; justify-content: space-between; align-items: center;
+}
+.student-list {
+  display: flex; flex-wrap: wrap; gap: 6px; min-height: 50px;
+  max-height: 240px; overflow-y: auto; padding: 8px;
+  border: 1px dashed #d9d9d9; border-radius: 6px;
+}
+.student-tag {
+  padding: 4px 12px; background: #f0f5ff; border: 1px solid #adc6ff;
+  border-radius: 12px; font-size: 12px; cursor: grab; user-select: none;
+  transition: all 0.15s;
+}
+.student-tag:hover { background: #d6e4ff; transform: scale(1.04); }
+.student-tag:active { cursor: grabbing; }
+.student-tag.dragging { opacity: 0.4; }
+.add-student-row { display: flex; gap: 6px; margin-top: 8px; }
+.add-student-row input { flex: 1; padding: 6px 10px; border: 1px solid #d9d9d9; border-radius: 4px; font-size: 13px; }
+.add-student-row button { padding: 6px 14px; border: none; border-radius: 4px; background: #667eea; color: #fff; cursor: pointer; font-size: 13px; }
+.add-student-row button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.modal-overlay {
+  display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.45); z-index: 1000; align-items: center; justify-content: center;
+}
+.modal-overlay.active { display: flex; }
+.modal-box {
+  background: #fff; border-radius: 12px; padding: 24px;
+  min-width: 400px; max-width: 90vw; max-height: 80vh; overflow-y: auto;
+  box-shadow: 0 8px 30px rgba(0,0,0,0.2);
+}
+.modal-box h2 { font-size: 18px; margin-bottom: 16px; }
+.modal-box textarea {
+  width: 100%; height: 200px; padding: 10px; border: 1px solid #d9d9d9;
+  border-radius: 6px; font-size: 13px; resize: vertical; font-family: monospace;
+}
+.modal-box .modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 14px; }
+.modal-box .modal-actions button { padding: 8px 20px; border: none; border-radius: 6px; cursor: pointer; font-size: 13px; }
+
+.toast {
+  position: fixed; top: 20px; left: 50%; transform: translateX(-50%);
+  background: #333; color: #fff; padding: 10px 24px; border-radius: 8px;
+  font-size: 14px; z-index: 2000; opacity: 0; transition: opacity 0.3s; pointer-events: none;
+}
+.toast.show { opacity: 1; }
+.toast.loading { background: #1890ff; }
+.toast.success { background: #52c41a; }
+.toast.error { background: #ff4d4f; }
+
+.legend { display: flex; gap: 16px; margin-top: 12px; font-size: 12px; color: #888; align-items: center; flex-wrap: wrap; }
+
+.horizontal-layout { display: flex; align-items: flex-start; gap: 0; }
+.horizontal-layout .podium.left, .horizontal-layout .podium.right { margin: 0 20px; }
+
+@media (max-width: 768px) {
+  .top-bar { flex-direction: column; align-items: flex-start; }
+  .toolbar { width: 100%; justify-content: flex-start; }
+  .panel-row { flex-direction: column; }
+  .config-bar { flex-direction: column; align-items: stretch; }
+  .modal-box { min-width: unset; width: 95vw; }
+}
+</style>
+</head>
+<body>
+
+<!-- 登录页面 -->
+<div class="login-page" id="loginPage">
+  <div class="login-box">
+    <div class="logo">📚</div>
+    <h2 id="loginTitle">登录</h2>
+    <div class="subtitle" id="loginSubtitle">班级排座位系统 - 多用户版</div>
+    <input type="text" id="loginUsername" placeholder="用户名" maxlength="20">
+    <input type="password" id="loginPassword" placeholder="密码" maxlength="50">
+    <button class="btn-login" id="loginBtn" onclick="handleLogin()">登录</button>
+    <button class="btn-register" id="registerBtn" onclick="handleRegister()">注册新账号</button>
+    <div class="switch-mode">
+      <span id="switchText">还没有账号？</span>
+      <a id="switchLink" onclick="toggleLoginMode()">立即注册</a>
+    </div>
+  </div>
+</div>
+
+<!-- 主应用 -->
+<div class="main-app" id="mainApp">
+<div class="top-bar">
+  <div>
+    <h1>📚 班级排座位系统 <span id="unsavedBadge" class="unsaved-badge" style="display:none">未保存</span></h1>
+    <div class="subtitle">
+      <span class="user-info">
+        <span class="user-name">👤 <span id="currentUsername">用户</span></span>
+      </span>
+    </div>
+  </div>
+  <div class="toolbar">
+    <button class="btn-primary" onclick="saveToServer()">💾 保存</button>
+    <button class="btn-secondary" id="undoBtn" onclick="undo()" disabled>↩️ 撤回</button>
+    <button class="btn-info" onclick="exportData()">📤 导出</button>
+    <button class="btn-success" onclick="document.getElementById('excelInput').click()">📥 导入 Excel</button>
+    <input type="file" id="excelInput" accept=".xlsx,.xls" style="display:none" onchange="importExcel(event)">
+    <button class="btn-warning" onclick="randomAssign()">🎲 随机排座</button>
+    <button class="btn-primary" onclick="reverseAll()">🔄 倒转座位</button>
+    <button class="btn-danger" onclick="clearAll()">🗑️ 清空</button>
+    <button class="btn-logout" onclick="handleLogout()">退出登录</button>
+  </div>
+</div>
+
+<div class="container">
+  <div class="config-bar">
+    <div class="config-group">
+      <label>行数：</label>
+      <input type="number" id="rowCount" value="6" min="1" max="20">
+    </div>
+    <div class="config-group">
+      <label>列数：</label>
+      <input type="number" id="colCount" value="6" min="1" max="20">
+    </div>
+    <div class="config-group">
+      <label>讲台位置：</label>
+      <select id="podiumPos">
+        <option value="top">上方</option>
+        <option value="bottom">下方</option>
+        <option value="left">左侧</option>
+        <option value="right">右侧</option>
+      </select>
+    </div>
+    <button style="padding:6px 16px;border:none;border-radius:4px;background:#667eea;color:#fff;cursor:pointer;font-size:13px;" onclick="applyGrid()">🔄 应用布局</button>
+  </div>
+
+  <div class="classroom-wrapper" id="classroomWrapper">
+    <div id="podiumContainer"></div>
+    <div class="seating-grid" id="seatingGrid"></div>
+  </div>
+
+  <div class="legend">
+    <span>💡 拖拽交换座位</span>
+    <span>💡 拖拽姓名到空位安排入座</span>
+    <span>💡 双击名单删除学生</span>
+    <span>💡 修改后点击"保存"同步到服务器</span>
+    <span>💡 点击"撤回"可撤销上一步操作</span>
+  </div>
+
+  <div class="panel-row">
+    <div class="student-panel">
+      <h3>
+        <span>👥 未入座学生 (<span id="studentCount">0</span>人)</span>
+        <span>
+          <button class="btn-danger" style="padding:3px 10px;font-size:12px;" onclick="clearStudents()">清空名单</button>
+        </span>
+      </h3>
+      <div class="student-list" id="studentList"></div>
+      <div class="add-student-row">
+        <input type="text" id="newStudentName" placeholder="输入学生姓名，回车添加" onkeydown="if(event.key==='Enter')addStudent()">
+        <button id="addStudentBtn" onclick="addStudent()">添加</button>
+      </div>
+    </div>
+    <div class="student-panel">
+      <h3><span>📊 座位统计</span></h3>
+      <div id="statsInfo" style="font-size:13px;color:#666;line-height:1.8;">
+        <div>总座位：<span id="totalSeats">36</span> 个</div>
+        <div>已入座：<span id="occupiedSeats">0</span> 人</div>
+        <div>空位：<span id="emptySeats">36</span> 个</div>
+        <div>未安排：<span id="unassignedStudents">0</span> 人</div>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal-box">
+    <h2 id="modalTitle">导入数据</h2>
+    <textarea id="modalTextarea" placeholder="粘贴 JSON 数据..."></textarea>
+    <div class="modal-actions">
+      <button onclick="closeModal()" style="background:#f0f0f0;color:#333;">取消</button>
+      <button onclick="confirmModal()" style="background:#667eea;color:#fff;">确认导入</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ========== 认证状态 ==========
+let authToken = localStorage.getItem('authToken') || '';
+let currentUser = null;
+let isRegisterMode = false;
+
+// ========== 业务状态 ==========
+let config = { rows: 6, cols: 6, podium: 'top', grid: [], students: [] };
+let dragSource = null;
+let loading = false;
+let hasUnsavedChanges = false;
+
+// ========== 操作历史（撤回功能）==========
+const MAX_HISTORY = 50;
+let historyStack = [];
+
+function saveHistory() {
+  // 深拷贝当前状态
+  const snapshot = JSON.stringify({
+    rows: config.rows,
+    cols: config.cols,
+    podium: config.podium,
+    grid: config.grid,
+    students: config.students
+  });
+  historyStack.push(snapshot);
+  if (historyStack.length > MAX_HISTORY) {
+    historyStack.shift();
+  }
+  updateUndoButton();
+  markUnsaved();
+}
+
+function undo() {
+  if (historyStack.length === 0) return;
+  
+  const snapshot = historyStack.pop();
+  const state = JSON.parse(snapshot);
+  
+  config.rows = state.rows;
+  config.cols = state.cols;
+  config.podium = state.podium;
+  config.grid = state.grid;
+  config.students = state.students;
+  
+  document.getElementById('rowCount').value = config.rows;
+  document.getElementById('colCount').value = config.cols;
+  document.getElementById('podiumPos').value = config.podium;
+  
+  renderAll();
+  updateUndoButton();
+  showToast('已撤回');
+}
+
+function updateUndoButton() {
+  const btn = document.getElementById('undoBtn');
+  btn.disabled = historyStack.length === 0;
+}
+
+function markUnsaved() {
+  hasUnsavedChanges = true;
+  document.getElementById('unsavedBadge').style.display = 'inline';
+}
+
+function markSaved() {
+  hasUnsavedChanges = false;
+  document.getElementById('unsavedBadge').style.display = 'none';
+}
+
+// ========== API 基础路径 ==========
+const API_BASE = window.location.origin;
+
+// ========== Toast ==========
+function showToast(msg, type = '') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast ' + type;
+  t.classList.add('show');
+  clearTimeout(t._timer);
+  t._timer = setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+function setLoading(v) {
+  loading = v;
+  document.querySelectorAll('.toolbar button').forEach(b => b.disabled = v);
+  document.getElementById('addStudentBtn').disabled = v;
+  if (!v) updateUndoButton(); // 恢复撤回按钮状态
+}
+
+// ========== 认证功能 ==========
+function toggleLoginMode() {
+  isRegisterMode = !isRegisterMode;
+  if (isRegisterMode) {
+    document.getElementById('loginTitle').textContent = '注册';
+    document.getElementById('loginSubtitle').textContent = '创建新账号，拥有独立数据空间';
+    document.getElementById('loginBtn').textContent = '注册';
+    document.getElementById('registerBtn').textContent = '返回登录';
+    document.getElementById('switchText').textContent = '已有账号？';
+    document.getElementById('switchLink').textContent = '立即登录';
+  } else {
+    document.getElementById('loginTitle').textContent = '登录';
+    document.getElementById('loginSubtitle').textContent = '班级排座位系统 - 多用户版';
+    document.getElementById('loginBtn').textContent = '登录';
+    document.getElementById('registerBtn').textContent = '注册新账号';
+    document.getElementById('switchText').textContent = '还没有账号？';
+    document.getElementById('switchLink').textContent = '立即注册';
+  }
+}
+
+async function handleLogin() {
+  const username = document.getElementById('loginUsername').value.trim();
+  const password = document.getElementById('loginPassword').value;
+  if (!username || !password) { showToast('请输入用户名和密码', 'error'); return; }
+  
+  try {
+    const resp = await fetch(API_BASE + '/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password })
+    });
+    const data = await resp.json();
+    if (data.success) {
+      authToken = data.data.token;
+      currentUser = { username: data.data.username };
+      localStorage.setItem('authToken', authToken);
+      showToast('登录成功', 'success');
+      showMainApp();
+    } else {
+      showToast(data.message || '登录失败', 'error');
+    }
+  } catch (err) {
+    showToast('网络错误: ' + err.message, 'error');
+  }
+}
+
+async function handleRegister() {
+  if (!isRegisterMode) { toggleLoginMode(); return; }
+  
+  const username = document.getElementById('loginUsername').value.trim();
+  const password = document.getElementById('loginPassword').value;
+  if (!username || !password) { showToast('请输入用户名和密码', 'error'); return; }
+  if (username.length < 2) { showToast('用户名至少2个字符', 'error'); return; }
+  if (password.length < 4) { showToast('密码至少4个字符', 'error'); return; }
+  
+  try {
+    const resp = await fetch(API_BASE + '/api/auth/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password })
+    });
+    const data = await resp.json();
+    if (data.success) {
+      showToast('注册成功，请登录', 'success');
+      toggleLoginMode();
+    } else {
+      showToast(data.message || '注册失败', 'error');
+    }
+  } catch (err) {
+    showToast('网络错误: ' + err.message, 'error');
+  }
+}
+
+async function handleLogout() {
+  try {
+    await fetch(API_BASE + '/api/auth/logout', {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + authToken }
+    });
+  } catch (e) {}
+  authToken = '';
+  currentUser = null;
+  localStorage.removeItem('authToken');
+  historyStack = [];
+  showLoginPage();
+  showToast('已退出登录');
+}
+
+async function checkAuth() {
+  if (!authToken) { showLoginPage(); return false; }
+  try {
+    const resp = await fetch(API_BASE + '/api/auth/me', {
+      headers: { 'Authorization': 'Bearer ' + authToken }
+    });
+    const data = await resp.json();
+    if (data.success) {
+      currentUser = data.data;
+      showMainApp();
+      return true;
+    } else {
+      authToken = '';
+      localStorage.removeItem('authToken');
+      showLoginPage();
+      return false;
+    }
+  } catch (err) {
+    showLoginPage();
+    return false;
+  }
+}
+
+function showLoginPage() {
+  document.getElementById('loginPage').style.display = 'flex';
+  document.getElementById('mainApp').classList.remove('logged-in');
+}
+
+function showMainApp() {
+  document.getElementById('loginPage').style.display = 'none';
+  document.getElementById('mainApp').classList.add('logged-in');
+  document.getElementById('currentUsername').textContent = currentUser?.username || '用户';
+  loadFromServer();
+}
+
+// ========== API 请求封装 ==========
+async function fetchWithAuth(url, options = {}) {
+  const headers = {
+    'Content-Type': 'application/json',
+    'Authorization': 'Bearer ' + authToken,
+    ...(options.headers || {})
+  };
+  const resp = await fetch(url, { ...options, headers });
+  const data = await resp.json();
+  if (data.needLogin) {
+    authToken = '';
+    localStorage.removeItem('authToken');
+    showLoginPage();
+    showToast('登录已过期，请重新登录', 'error');
+  }
+  return { resp, data };
+}
+
+// ========== 服务器通信 ==========
+async function loadFromServer() {
+  setLoading(true);
+  const { data } = await fetchWithAuth(API_BASE + '/api/config');
+  
+  if (data.success && data.data) {
+    config.rows = data.data.rows;
+    config.cols = data.data.cols;
+    config.podium = data.data.podium;
+    config.grid = data.data.grid || [];
+    config.students = data.data.students || [];
+    
+    document.getElementById('rowCount').value = config.rows;
+    document.getElementById('colCount').value = config.cols;
+    document.getElementById('podiumPos').value = config.podium;
+    
+    historyStack = []; // 清空历史
+    markSaved();
+    renderAll();
+    showToast('✅ 数据加载成功', 'success');
+  } else {
+    showToast('⚠️ 加载数据失败：' + (data.message || '未知错误'), 'error');
+  }
+  setLoading(false);
+}
+
+async function saveToServer() {
+  setLoading(true);
+  
+  const grid = [];
+  for (let r = 0; r < config.rows; r++) {
+    grid[r] = [];
+    for (let c = 0; c < config.cols; c++) {
+      grid[r][c] = config.grid[r]?.[c] || null;
+    }
+  }
+  
+  const { data } = await fetchWithAuth(API_BASE + '/api/config', {
+    method: 'POST',
+    body: JSON.stringify({
+      rows: config.rows,
+      cols: config.cols,
+      podium: config.podium,
+      grid,
+      students: config.students
+    })
+  });
+  
+  if (data.success) {
+    markSaved();
+    showToast('✅ 保存成功', 'success');
+  } else {
+    showToast('⚠️ 保存失败：' + (data.message || '未知错误'), 'error');
+  }
+  setLoading(false);
+}
+
+// ========== 渲染 ==========
+function renderAll() {
+  renderPodium();
+  renderGrid();
+  renderStudentList();
+  updateStats();
+}
+
+function renderPodium() {
+  const container = document.getElementById('podiumContainer');
+  const wrapper = document.getElementById('classroomWrapper');
+  container.innerHTML = '';
+  
+  const podiumEl = document.createElement('div');
+  podiumEl.className = 'podium ' + config.podium;
+  podiumEl.textContent = '讲 台';
+  
+  if (config.podium === 'top') {
+    container.appendChild(podiumEl);
+    wrapper.classList.remove('horizontal-layout');
+  } else if (config.podium === 'bottom') {
+    const gridEl = document.getElementById('seatingGrid');
+    gridEl.insertAdjacentElement('afterend', podiumEl);
+    wrapper.classList.remove('horizontal-layout');
+  } else if (config.podium === 'left' || config.podium === 'right') {
+    wrapper.classList.add('horizontal-layout');
+    const gridEl = document.getElementById('seatingGrid');
+    if (config.podium === 'left') {
+      container.appendChild(podiumEl);
+    } else {
+      gridEl.insertAdjacentElement('afterend', podiumEl);
+    }
+  }
+}
+
+function renderGrid() {
+  const gridEl = document.getElementById('seatingGrid');
+  gridEl.innerHTML = '';
+  gridEl.style.gridTemplateColumns = `repeat(${config.cols}, 1fr)`;
+  
+  for (let r = 0; r < config.rows; r++) {
+    for (let c = 0; c < config.cols; c++) {
+      const seat = document.createElement('div');
+      seat.className = 'seat';
+      seat.dataset.row = r;
+      seat.dataset.col = c;
+      
+      const name = config.grid[r]?.[c];
+      if (name) {
+        seat.textContent = name;
+        seat.classList.add('occupied');
+        const rm = document.createElement('button');
+        rm.className = 'remove-btn';
+        rm.textContent = '×';
+        rm.onclick = (e) => { e.stopPropagation(); removeFromSeat(r, c); };
+        seat.appendChild(rm);
+      } else {
+        seat.textContent = '空位';
+        seat.classList.add('empty');
+        seat.onclick = () => onClickEmptySeat(r, c);
+      }
+      
+      seat.draggable = true;
+      seat.ondragstart = (e) => onSeatDragStart(e, r, c);
+      seat.ondragend = onSeatDragEnd;
+      seat.ondragover = (e) => e.preventDefault();
+      seat.ondragleave = onSeatDragLeave;
+      seat.ondrop = (e) => onSeatDrop(e, r, c);
+      
+      gridEl.appendChild(seat);
+    }
+  }
+}
+
+function renderStudentList() {
+  const listEl = document.getElementById('studentList');
+  const seatedNames = new Set(config.grid.flat().filter(n => n));
+  const unseated = config.students.filter(s => !seatedNames.has(s));
+  
+  listEl.innerHTML = '';
+  unseated.forEach(name => {
+    const tag = document.createElement('span');
+    tag.className = 'student-tag';
+    tag.textContent = name;
+    tag.draggable = true;
+    tag.ondragstart = (e) => onStudentDragStart(e, name);
+    tag.ondragend = onStudentDragEnd;
+    tag.ondblclick = () => removeStudent(name);
+    listEl.appendChild(tag);
+  });
+  
+  document.getElementById('studentCount').textContent = unseated.length;
+}
+
+function updateStats() {
+  const total = config.rows * config.cols;
+  const occupied = config.grid.flat().filter(n => n).length;
+  const seatedNames = new Set(config.grid.flat().filter(n => n));
+  const unseated = config.students.filter(s => !seatedNames.has(s)).length;
+  
+  document.getElementById('totalSeats').textContent = total;
+  document.getElementById('occupiedSeats').textContent = occupied;
+  document.getElementById('emptySeats').textContent = total - occupied;
+  document.getElementById('unassignedStudents').textContent = unseated;
+}
+
+// ========== 拖拽 ==========
+function onSeatDragStart(e, r, c) {
+  dragSource = { type: 'seat', row: r, col: c };
+  e.target.classList.add('dragging');
+}
+
+function onSeatDragEnd(e) {
+  e.target.classList.remove('dragging');
+  dragSource = null;
+}
+
+function onSeatDragLeave(e) {
+  e.target.classList.remove('drag-over');
+}
+
+function onSeatDrop(e, r, c) {
+  e.preventDefault();
+  e.target.classList.remove('drag-over');
+  if (!dragSource) return;
+  
+  saveHistory(); // 保存历史用于撤回
+  
+  if (dragSource.type === 'seat') {
+    const temp = config.grid[r]?.[c] || null;
+    config.grid[r] = config.grid[r] || [];
+    config.grid[dragSource.row] = config.grid[dragSource.row] || [];
+    config.grid[r][c] = config.grid[dragSource.row][dragSource.col];
+    config.grid[dragSource.row][dragSource.col] = temp;
+  } else if (dragSource.type === 'student') {
+    config.grid[r] = config.grid[r] || [];
+    config.grid[r][c] = dragSource.name;
+  }
+  
+  renderAll();
+}
+
+function onStudentDragStart(e, name) {
+  dragSource = { type: 'student', name };
+  e.target.classList.add('dragging');
+}
+
+function onStudentDragEnd(e) {
+  e.target.classList.remove('dragging');
+  dragSource = null;
+}
+
+// ========== 学生管理（无自动保存）==========
+function addStudent() {
+  const input = document.getElementById('newStudentName');
+  const name = input.value.trim();
+  if (!name) return;
+  if (config.students.includes(name)) {
+    showToast('该学生已存在');
+    return;
+  }
+  
+  saveHistory();
+  config.students.push(name);
+  input.value = '';
+  renderAll();
+}
+
+function removeStudent(name) {
+  if (!confirm(`确定删除学生「${name}」？`)) return;
+  
+  saveHistory();
+  config.students = config.students.filter(s => s !== name);
+  for (let r = 0; r < config.rows; r++) {
+    for (let c = 0; c < config.cols; c++) {
+      if (config.grid[r]?.[c] === name) {
+        config.grid[r][c] = null;
+      }
+    }
+  }
+  renderAll();
+}
+
+function removeFromSeat(r, c) {
+  saveHistory();
+  config.grid[r] = config.grid[r] || [];
+  config.grid[r][c] = null;
+  renderAll();
+}
+
+function onClickEmptySeat(r, c) {
+  const name = prompt('输入学生姓名：');
+  if (name && name.trim()) {
+    saveHistory();
+    if (!config.students.includes(name.trim())) {
+      config.students.push(name.trim());
+    }
+    config.grid[r] = config.grid[r] || [];
+    config.grid[r][c] = name.trim();
+    renderAll();
+  }
+}
+
+function clearStudents() {
+  if (!confirm('确定清空所有未入座学生？')) return;
+  saveHistory();
+  config.students = [];
+  renderAll();
+}
+
+// ========== 布局 ==========
+function applyGrid() {
+  saveHistory();
+  const rows = parseInt(document.getElementById('rowCount').value) || 6;
+  const cols = parseInt(document.getElementById('colCount').value) || 6;
+  const podium = document.getElementById('podiumPos').value;
+  
+  config.rows = Math.max(1, Math.min(20, rows));
+  config.cols = Math.max(1, Math.min(20, cols));
+  config.podium = podium;
+  
+  const newGrid = [];
+  for (let r = 0; r < config.rows; r++) {
+    newGrid[r] = [];
+    for (let c = 0; c < config.cols; c++) {
+      newGrid[r][c] = (config.grid[r] && config.grid[r][c] !== undefined) ? config.grid[r][c] : null;
+    }
+  }
+  config.grid = newGrid;
+  
+  renderAll();
+  showToast(`已应用 ${config.rows}×${config.cols} 布局`);
+}
+
+// ========== 倒转座位 ==========
+function reverseAll() {
+  saveHistory();
+  const podiumMap = { 'top': 'bottom', 'bottom': 'top', 'left': 'right', 'right': 'left' };
+  
+  config.podium = podiumMap[config.podium] || config.podium;
+  document.getElementById('podiumPos').value = config.podium;
+  
+  const newGrid = [];
+  for (let r = 0; r < config.rows; r++) {
+    newGrid[r] = [];
+    for (let c = 0; c < config.cols; c++) {
+      const oldR = config.rows - 1 - r;
+      const oldC = config.cols - 1 - c;
+      newGrid[r][c] = (config.grid[oldR] && config.grid[oldR][oldC]) ? config.grid[oldR][oldC] : null;
+    }
+  }
+  config.grid = newGrid;
+  
+  renderAll();
+  showToast('✅ 已倒转座位和讲台');
+}
+
+// ========== 随机排座（需要保存后生效，所以直接调API）==========
+async function randomAssign() {
+  if (hasUnsavedChanges) {
+    if (!confirm('当前有未保存的修改，随机排座将先保存当前数据，是否继续？')) return;
+    await saveToServer();
+  }
+  
+  setLoading(true);
+  const { data } = await fetchWithAuth(API_BASE + '/api/random-assign', { method: 'POST' });
+  
+  if (data.success) {
+    showToast('✅ ' + data.message);
+    loadFromServer();
+  } else {
+    showToast('⚠️ ' + (data.message || '随机排座失败'), 'error');
+    setLoading(false);
+  }
+}
+
+// ========== 导入导出 ==========
+async function exportData() {
+  const { data } = await fetchWithAuth(API_BASE + '/api/export');
+  if (data.success) {
+    const json = JSON.stringify(data.data, null, 2);
+    const blob = new Blob([json], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `座位表_${currentUser?.username || 'export'}_${new Date().toISOString().slice(0,10)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    showToast('✅ 导出成功');
+  } else {
+    showToast('⚠️ 导出失败', 'error');
+  }
+}
+
+async function importExcel(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  
+  // 先保存当前状态
+  saveHistory();
+  
+  const formData = new FormData();
+  formData.append('file', file);
+  
+  const resp = await fetch(API_BASE + '/api/import/excel', {
+    method: 'POST',
+    headers: { 'Authorization': 'Bearer ' + authToken },
+    body: formData
+  });
+  const data = await resp.json();
+  
+  if (data.success) {
+    showToast('✅ ' + data.message);
+    loadFromServer();
+  } else {
+    showToast('⚠️ ' + (data.message || '导入失败'), 'error');
+    historyStack.pop(); // 导入失败，移除保存的历史
+    updateUndoButton();
+  }
+  
+  event.target.value = '';
+}
+
+async function clearAll() {
+  if (!confirm('确定清空所有座位和学生数据？此操作不可恢复！')) return;
+  if (!confirm('再次确认：清空后数据将无法恢复，是否继续？')) return;
+  
+  setLoading(true);
+  const { data } = await fetchWithAuth(API_BASE + '/api/clear-all', { method: 'POST' });
+  
+  if (data.success) {
+    historyStack = [];
+    updateUndoButton();
+    showToast('✅ 已清空所有数据');
+    loadFromServer();
+  } else {
+    showToast('⚠️ 清空失败', 'error');
+    setLoading(false);
+  }
+}
+
+// ========== Modal ==========
+function openModal(title) {
+  document.getElementById('modalTitle').textContent = title;
+  document.getElementById('modalTextarea').value = '';
+  document.getElementById('modalOverlay').classList.add('active');
+}
+
+function closeModal() {
+  document.getElementById('modalOverlay').classList.remove('active');
+}
+
+function confirmModal() {
+  const text = document.getElementById('modalTextarea').value.trim();
+  try {
+    const data = JSON.parse(text);
+    if (data.rows && data.cols) {
+      saveHistory();
+      config.rows = data.rows;
+      config.cols = data.cols;
+      config.podium = data.podium || 'top';
+      config.grid = data.grid || [];
+      config.students = data.students || data.unseated || [];
+      renderAll();
+      closeModal();
+      showToast('✅ 导入成功');
+    } else {
+      showToast('JSON 格式不正确');
+    }
+  } catch (e) {
+    showToast('JSON 解析失败: ' + e.message);
+  }
+}
+
+// ========== 页面离开提醒 ==========
+window.addEventListener('beforeunload', (e) => {
+  if (hasUnsavedChanges) {
+    e.preventDefault();
+    e.returnValue = '您有未保存的修改，确定要离开吗？';
+    return e.returnValue;
+  }
+});
+
+// ========== 键盘快捷键 ==========
+document.addEventListener('keydown', (e) => {
+  // Ctrl/Cmd + S 保存
+  if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+    e.preventDefault();
+    if (document.getElementById('mainApp').classList.contains('logged-in')) {
+      saveToServer();
+    }
+  }
+  // Ctrl/Cmd + Z 撤回
+  if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
+    e.preventDefault();
+    if (document.getElementById('mainApp').classList.contains('logged-in') && historyStack.length > 0) {
+      undo();
+    }
+  }
+});
+
+// ========== 初始化 ==========
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('loginPassword').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      if (isRegisterMode) handleRegister();
+      else handleLogin();
+    }
+  });
+  
+  document.getElementById('loginUsername').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') document.getElementById('loginPassword').focus();
+  });
+  
+  checkAuth();
+});
+</script>
+</body>
+</html>

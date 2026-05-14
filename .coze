@@ -1,0 +1,11 @@
+[project]
+entrypoint = "server.js"
+requires = ["nodejs-24"]
+
+[dev]
+build = ["pnpm", "install"]
+run = ["node", "server.js"]
+
+[deploy]
+build = ["pnpm", "install"]
+run = ["node", "server.js"]
